@@ -43,6 +43,9 @@ def initialize_session():
 
 def handle_player_move(row: int, col: int):
     """플레이어의 수 처리"""
+    if st.session_state.ai_thinking or st.session_state.game_over:
+        return
+
     game = st.session_state.game
     
     # 플레이어 수 배치
@@ -278,6 +281,7 @@ def main():
             st.session_state.game,
             st.session_state.assets,
             st.session_state.game_over,
+            st.session_state.ai_thinking,
             handle_player_move,
         )
 
