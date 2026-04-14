@@ -66,6 +66,52 @@ class GomokuAIAgent:
 
         return workflow.compile()
 
+    def _check_winner_on_board(
+        self,
+        board: List[List[int]],
+        row: int,
+        col: int,
+        player: int,
+    ) -> bool:
+        """보드 상태에서 특정 착수가 5목 완성인지 확인"""
+        directions = [(0, 1), (1, 0), (1, 1), (1, -1)]
+        board_size = len(board)
+
+        for dr, dc in directions:
+            count = 1
+
+            r, c = row + dr, col + dc
+            while 0 <= r < board_size and 0 <= c < board_size and board[r][c] == player:
+                count += 1
+                r += dr
+                c += dc
+
+            r, c = row - dr, col - dc
+            while 0 <= r < board_size and 0 <= c < board_size and board[r][c] == player:
+                count += 1
+                r -= dr
+                c -= dc
+
+            if count >= 5:
+                return True
+
+        return False
+
+    def _find_immediate_win(
+        self,
+        board: List[List[int]],
+        valid_moves: List[Tuple[int, int]],
+        player: int,
+    ) -> Optional[Tuple[int, int]]:
+        """한 수에 즉시 승리 가능한 좌표 탐색"""
+        for row, col in valid_moves:
+            board[row][col] = player
+            is_win = self._check_winner_on_board(board, row, col, player)
+            board[row][col] = 0
+            if is_win:
+                return (row, col)
+        return None
+
     def _board_to_string(self, board: List[List[int]]) -> str:
         """
         게임판을 문자열로 변환 (LLM에 입력하기 위해)
@@ -128,6 +174,12 @@ class GomokuAIAgent:
 3. 추천할 최적 수 (행,열 형식으로)
 를 제시하세요."""
 
+        user_message += """
+
+    반드시 마지막 줄을 아래 형식으로 끝내세요:
+    FINAL_MOVE: (row,col)
+    """
+
         try:
             response = self.llm.invoke([
                 SystemMessage(content=system_prompt),
@@ -150,13 +202,32 @@ class GomokuAIAgent:
         """
         analysis = state["analysis"]
 
+        # 최우선: 강제 포맷 라인 파싱
+        final_pattern = r"FINAL_MOVE\s*:\s*\(\s*(\d+)\s*,\s*(\d+)\s*\)"
+        final_match = re.search(final_pattern, analysis, re.IGNORECASE)
+        if final_match:
+            row, col = int(final_match.group(1)), int(final_match.group(2))
+            if (row, col) in state["valid_moves"]:
+                state["selected_move"] = (row, col)
+                state["confidence"] = 0.95
+                return state
+
         # 프롬프트에서 (행,열) 형식의 좌표 찾기
         pattern = r"\((\d+)\s*,\s*(\d+)\)"
         matches = re.findall(pattern, analysis)
 
         if matches:
-            # 마지막으로 제시된 수를 선택
-            row, col = int(matches[-1][0]), int(matches[-1][1])
+            # 보조 파싱: 마지막 좌표 대신 첫 번째 유효 좌표를 우선 사용
+            row, col = -1, -1
+            for m_row, m_col in matches:
+                cand = (int(m_row), int(m_col))
+                if cand in state["valid_moves"]:
+                    row, col = cand
+                    break
+
+            if row == -1:
+                row, col = int(matches[-1][0]), int(matches[-1][1])
+
             if (row, col) in state["valid_moves"]:
                 state["selected_move"] = (row, col)
                 state["confidence"] = 0.8
@@ -209,6 +280,24 @@ class GomokuAIAgent:
         Returns:
             (최적 수, 신뢰도, 분석 텍스트)
         """
+        # 1) 규칙 기반 즉시 승리 우선
+        win_move = self._find_immediate_win(board, valid_moves, player=2)
+        if win_move:
+            return (
+                win_move,
+                1.0,
+                f"즉시 승리 수를 발견했습니다. FINAL_MOVE: ({win_move[0]},{win_move[1]})",
+            )
+
+        # 2) 상대 즉시 승리 차단 우선
+        block_move = self._find_immediate_win(board, valid_moves, player=1)
+        if block_move:
+            return (
+                block_move,
+                0.98,
+                f"상대의 즉시 승리 수를 차단합니다. FINAL_MOVE: ({block_move[0]},{block_move[1]})",
+            )
+
         initial_state = GomokuState(
             board=board,
             board_size=board_size,
