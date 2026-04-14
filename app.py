@@ -36,6 +36,7 @@ def initialize_session():
         st.session_state.assets = load_or_create_assets()
         st.session_state.ai_last_analysis = "아직 AI 분석이 없습니다."
         st.session_state.ai_analysis_history = []
+        st.session_state.min_confidence_threshold = 0.5
 
 
 def handle_player_move(row: int, col: int):
@@ -62,8 +63,8 @@ def handle_player_move(row: int, col: int):
     st.rerun()
 
 
-def get_ai_move():
-    """AI의 최적 수 계산"""
+def get_ai_move(min_confidence: float, max_retries: int = 2):
+    """AI의 최적 수 계산 (신뢰도 임계값 미만이면 재고)"""
     game = st.session_state.game
     
     valid_moves = game.get_valid_moves()
@@ -73,13 +74,34 @@ def get_ai_move():
     
     try:
         board_state = game.get_game_info()
-        move, confidence, analysis = st.session_state.ai_agent.get_best_move(
-            board_state["board"],
-            board_state["board_size"],
-            valid_moves
-        )
-        
-        return move, confidence, analysis
+
+        best_result = None
+        attempts = max_retries + 1
+
+        for attempt in range(attempts):
+            move, confidence, analysis = st.session_state.ai_agent.get_best_move(
+                board_state["board"],
+                board_state["board_size"],
+                valid_moves,
+            )
+
+            if best_result is None or confidence > best_result[1]:
+                best_result = (move, confidence, analysis)
+
+            if confidence >= min_confidence:
+                return move, confidence, analysis, attempt + 1
+
+        # 임계값을 넘지 못하면 가장 높은 신뢰도의 결과를 반환
+        if best_result is not None:
+            move, confidence, analysis = best_result
+            analysis = (
+                analysis
+                + f"\n\n[재고 결과] 최소 신뢰도 {min_confidence:.0%} 미달, "
+                + f"{attempts}회 중 최고 신뢰도 {confidence:.0%} 수를 선택했습니다."
+            )
+            return move, confidence, analysis, attempts
+
+        return None
     except Exception as e:
         st.error(f"❌ AI 오류: {str(e)}")
         return None
@@ -173,6 +195,18 @@ def main():
         with sidebar_tab_game:
             st.header("⚙️ 게임 설정")
 
+            st.subheader("🤖 AI 판단 설정")
+            st.session_state.min_confidence_threshold = st.slider(
+                "최소 신뢰도 임계값",
+                min_value=0.1,
+                max_value=0.95,
+                value=st.session_state.min_confidence_threshold,
+                step=0.05,
+            )
+            st.caption(f"현재 설정: {st.session_state.min_confidence_threshold:.0%} 미만이면 다시 생각")
+
+            st.divider()
+
             if st.button("🔄 새 게임 시작", use_container_width=True):
                 st.session_state.game = GomokuGame(19)
                 st.session_state.winner = None
@@ -232,10 +266,10 @@ def main():
     if st.session_state.ai_thinking and not st.session_state.game_over:
         with st.spinner("🤖 AI가 최적의 수를 계산 중 (19×19)..."):
             time.sleep(1)  # UX 개선용
-            result = get_ai_move()
+            result = get_ai_move(st.session_state.min_confidence_threshold)
             
             if result:
-                move, confidence, analysis = result
+                move, confidence, analysis, tries = result
                 st.session_state.ai_last_analysis = analysis
                 st.session_state.ai_analysis_history.append(analysis)
                 
@@ -246,7 +280,7 @@ def main():
                     
                     if success:
                         st.session_state.move_history_display.append(
-                            f"AI: ({row}, {col}) [신뢰도: {confidence:.1%}]"
+                            f"AI: ({row}, {col}) [신뢰도: {confidence:.1%}, 시도: {tries}회]"
                         )
                         
                         if winner:
