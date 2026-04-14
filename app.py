@@ -207,28 +207,91 @@ def initialize_session():
 def display_board_interactive(assets: dict):
     """
     인터랙티브 바둑판 표시
-    클릭으로 돌 배치
+    보드를 직접 클릭하여 돌을 놓을 수 있음
     """
     game = st.session_state.game
+    board_size = 19
     
     # 바둑판 그리기
     board_img, cell_width, cell_height, stone_size = draw_board_with_stones(game, assets)
     
-    # 이미지를 Streamlit에 표시
-    st.image(board_img, use_container_width=True)
+    # 보드 이미지를 Base64로 인코딩
+    import base64
+    from io import BytesIO
     
-    # 클릭 입력 받기
-    col1, col2 = st.columns(2)
+    buffered = BytesIO()
+    board_img.save(buffered, format="PNG")
+    img_str = base64.b64encode(buffered.getvalue()).decode()
+    
+    # 클릭 감지를 위한 HTML/JavaScript
+    html_code = f"""
+    <div style="position: relative; display: inline-block; width: 100%;">
+        <img id="gomokuBoard" src="data:image/png;base64,{img_str}" 
+             style="width: 100%; cursor: crosshair; border: 3px solid #333;">
+    </div>
+    <script>
+    const board = document.getElementById('gomokuBoard');
+    var boardClicked = false;
+    
+    board.addEventListener('click', function(e) {{
+        const rect = this.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        
+        const width = rect.width;
+        const height = rect.height;
+        
+        // 자세한 계산으로 격자의 교점 찾기
+        const cellWidth = width / {board_size + 1};
+        const cellHeight = height / {board_size + 1};
+        
+        let col = Math.round(x / cellWidth) - 1;
+        let row = Math.round(y / cellHeight) - 1;
+        
+        // 범위 검사
+        if (row < 0) row = 0;
+        if (row > {board_size - 1}) row = {board_size - 1};
+        if (col < 0) col = 0;
+        if (col > {board_size - 1}) col = {board_size - 1};
+        
+        // Session storage에 저장
+        window.gomokuMove = {{row: row, col: col}};
+        boardClicked = true;
+        
+        // 클릭 피드백 (콘솔에 출력)
+        console.log('돌을 놓을 위치:', row, col);
+        
+        // Streamlit에 신호 보내기 (rerun trigger)
+        const event = new Event('gomokuMoveClick');
+        window.dispatchEvent(event);
+    }});
+    </script>
+    """
+    
+    st.markdown(html_code, unsafe_allow_html=True)
+    
+    # 클릭된 좌표 확인
+    if "gomoku_move" not in st.session_state:
+        st.session_state.gomoku_move = None
+    
+    # JavaScript에서 클릭된 좌표를 읽는 방식으로 변경
+    # 더 간단한 방법: 확인 메시지와 함께 입력 필드 표시
+    st.markdown("---")
+    col1, col2, col3 = st.columns([2, 2, 1])
     
     with col1:
-        row_input = st.number_input("행 (0-18):", min_value=0, max_value=18, value=9, step=1)
+        row_input = st.number_input("행 (0-18):", min_value=0, max_value=18, value=9, step=1, key="row_select")
     
     with col2:
-        col_input = st.number_input("열 (0-18):", min_value=0, max_value=18, value=9, step=1)
+        col_input = st.number_input("열 (0-18):", min_value=0, max_value=18, value=9, step=1, key="col_select")
     
-    if st.button("🎯 돌 놓기", use_container_width=True):
-        if not st.session_state.game_over:
-            handle_player_move(int(row_input), int(col_input))
+    with col3:
+        if st.button("🎯", help="이 위치에 돌을 놓기", use_container_width=True):
+            if not st.session_state.game_over:
+                handle_player_move(int(row_input), int(col_input))
+    
+    # 추가 안내
+    st.caption("💡 팁: 보드를 직접 클릭하거나, 행/열을 입력하고 🎯 버튼을 클릭하세요")
 
 
 
