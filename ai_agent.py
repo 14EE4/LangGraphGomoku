@@ -105,7 +105,7 @@ class GomokuAIAgent:
         board_string = self._board_to_string(state["board"])
         valid_moves_str = ", ".join([f"({r},{c})" for r, c in state["valid_moves"][:10]])
 
-        system_prompt = """당신은 오목 게임의 전문가 AI입니다.
+        system_prompt = """당신은 오목의 전문가입니다.
 게임판을 분석하고 최적의 수를 제안합니다.
 - X: 플레이어의 돌
 - O: 당신의 돌(AI)
