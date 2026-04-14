@@ -30,12 +30,12 @@ class GomokuState(TypedDict):
 class GomokuAIAgent:
     """Groq API를 사용한 오목 AI 에이전트"""
 
-    def __init__(self, model: str = "mixtral-8x7b-32768", temperature: float = 0.7):
+    def __init__(self, model: str = "llama-3.1-70b-versatile", temperature: float = 0.7):
         """
         AI 에이전트 초기화
         
         Args:
-            model: 사용할 Groq 모델
+            model: 사용할 Groq 모델 (기본: llama-3.1-70b-versatile)
             temperature: LLM 창의성 (0~1, 낮을수록 일관적)
         """
         api_key = os.getenv("GROQ_API_KEY")
