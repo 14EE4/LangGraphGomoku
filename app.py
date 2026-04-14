@@ -1,196 +1,27 @@
-"""
-Streamlit을 사용한 오목 게임 UI (개선 버전)
-- 실제 바둑판 격자 표시
-- 나무 텍스처 배경
-- 실제 바둑돌 표현
-"""
+"""Streamlit을 사용한 오목 게임 UI"""
+
+import os
+import time
 
 import streamlit as st
-from game import GomokuGame
+
 from ai_agent import GomokuAIAgent
-import time
-from typing import Optional
-import os
-from PIL import Image, ImageDraw
-import io
+from board_ui import (
+    BOARD_IMAGE_PATH,
+    BLACK_STONE_PATH,
+    WHITE_STONE_PATH,
+    display_board_interactive,
+    load_or_create_assets,
+)
+from game import GomokuGame
 
 
-# 페이지 설정
 st.set_page_config(
     page_title="오목 게임 🎮",
     page_icon="🎮",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="expanded",
 )
-
-
-# ===== 설정 (이미지 경로) =====
-ASSETS_DIR = "assets"
-BOARD_IMAGE_PATH = os.path.join(ASSETS_DIR, "board.png")  # 나무 텍스처
-BLACK_STONE_PATH = os.path.join(ASSETS_DIR, "black_stone.png")  # 검은 돌
-WHITE_STONE_PATH = os.path.join(ASSETS_DIR, "white_stone.png")  # 흰 돌
-
-
-def create_default_board(size_px=600):
-    """
-    기본 바둑판 이미지 생성 (19x19)
-    
-    Args:
-        size_px: 보드 크기 (픽셀)
-    """
-    img = Image.new('RGB', (size_px, size_px), color=(210, 160, 100))
-    draw = ImageDraw.Draw(img)
-    
-    # 격자 그리기
-    board_size = 19
-    cell_size = size_px // (board_size + 1)
-    
-    # 격자선 (어두운 갈색)
-    for i in range(board_size):
-        x = cell_size * (i + 1)
-        y_start = cell_size
-        y_end = size_px - cell_size
-        draw.line([(x, y_start), (x, y_end)], fill=(50, 30, 10), width=2)
-        
-        y = cell_size * (i + 1)
-        x_start = cell_size
-        x_end = size_px - cell_size
-        draw.line([(x_start, y), (x_end, y)], fill=(50, 30, 10), width=2)
-    
-    # 별 표시 (손바닥 위치) - 9개 위치 (19x19)
-    star_positions = [
-        (3, 3), (3, 9), (3, 15),
-        (9, 3), (9, 9), (9, 15),
-        (15, 3), (15, 9), (15, 15)
-    ]
-    
-    for row, col in star_positions:
-        x = cell_size * (col + 1)
-        y = cell_size * (row + 1)
-        radius = 4
-        draw.ellipse(
-            [(x - radius, y - radius), (x + radius, y + radius)],
-            fill=(50, 30, 10)
-        )
-    
-    return img
-
-
-def create_default_stone(color='black', size=40):
-    """
-    기본 바둑돌 이미지 생성
-    
-    Args:
-        color: 'black' 또는 'white'
-        size: 돌 크기 (픽셀)
-    """
-    img = Image.new('RGBA', (size, size), color=(0, 0, 0, 0))
-    draw = ImageDraw.Draw(img)
-    
-    if color == 'black':
-        # 검은 돌 (그라데이션 효과)
-        draw.ellipse([(0, 0), (size-1, size-1)], fill=(20, 20, 20))
-        draw.ellipse([(2, 2), (size-3, size-3)], fill=(40, 40, 40))
-    else:  # white
-        # 흰 돌 (그라데이션 효과)
-        draw.ellipse([(0, 0), (size-1, size-1)], fill=(240, 240, 240))
-        draw.ellipse([(2, 2), (size-3, size-3)], fill=(220, 220, 220))
-    
-    return img
-
-
-def load_or_create_assets():
-    """에셋 로드 또는 생성"""
-    assets = {}
-    
-    # 나무 텍스처 보드
-    if os.path.exists(BOARD_IMAGE_PATH):
-        assets['board'] = Image.open(BOARD_IMAGE_PATH)
-    else:
-        assets['board'] = create_default_board()
-    
-    # 검은 돌
-    if os.path.exists(BLACK_STONE_PATH):
-        assets['black_stone'] = Image.open(BLACK_STONE_PATH)
-    else:
-        assets['black_stone'] = create_default_stone('black')
-    
-    # 흰 돌
-    if os.path.exists(WHITE_STONE_PATH):
-        assets['white_stone'] = Image.open(WHITE_STONE_PATH)
-    else:
-        assets['white_stone'] = create_default_stone('white')
-    
-    return assets
-
-
-def draw_board_with_stones(game: GomokuGame, assets: dict):
-    """
-    바둑판(19x19)과 돌을 하나의 이미지로 그리기
-    보드 텍스처 위에 격자선을 겹치게 그리고, 그 위에 돌을 배치
-    
-    Args:
-        game: 게임 객체
-        assets: 이미지 딕셔너리
-    """
-    board_img = assets['board'].copy().convert('RGB')
-    board_size = 19  # 고정: 19x19
-    
-    # 보드를 정사각형으로 만들기
-    original_width, original_height = board_img.size
-    square_size = min(original_width, original_height)
-    
-    # 정사각형으로 중앙 자르기
-    left = (original_width - square_size) // 2
-    top = (original_height - square_size) // 2
-    right = left + square_size
-    bottom = top + square_size
-    board_img = board_img.crop((left, top, right, bottom))
-    
-    width, height = board_img.size
-    cell_width = width / (board_size + 1)
-    cell_height = height / (board_size + 1)
-    
-    # 돌 크기 (셀 크기의 70%)
-    stone_size = int(min(cell_width, cell_height) * 0.7)
-    
-    # 검은 돌 및 흰 돌 리사이즈
-    black_stone = assets['black_stone'].resize((stone_size, stone_size), Image.Resampling.LANCZOS)
-    white_stone = assets['white_stone'].resize((stone_size, stone_size), Image.Resampling.LANCZOS)
-    
-    # 1단계: 텍스처 위에 격자선 먼저 그리기
-    draw = ImageDraw.Draw(board_img)
-    line_color = (50, 30, 10)  # 어두운 갈색
-    line_width = 2
-    
-    # 세로줄
-    for i in range(board_size):
-        x = int(cell_width * (i + 1))
-        y_start = int(cell_height)
-        y_end = int(height - cell_height)
-        draw.line([(x, y_start), (x, y_end)], fill=line_color, width=line_width)
-    
-    # 가로줄
-    for i in range(board_size):
-        y = int(cell_height * (i + 1))
-        x_start = int(cell_width)
-        x_end = int(width - cell_width)
-        draw.line([(x_start, y), (x_end, y)], fill=line_color, width=line_width)
-    
-    # 2단계: 격자선 위에 돌 배치
-    for row in range(board_size):
-        for col in range(board_size):
-            if game.board[row][col] != 0:
-                # 돌의 중심 위치 계산 (격자의 교점)
-                x = int(cell_width * (col + 1) - stone_size / 2)
-                y = int(cell_height * (row + 1) - stone_size / 2)
-                
-                if game.board[row][col] == 1:  # 플레이어 (검은 돌)
-                    board_img.paste(black_stone, (x, y), black_stone)
-                else:  # AI (흰 돌)
-                    board_img.paste(white_stone, (x, y), white_stone)
-    
-    return board_img, cell_width, cell_height, stone_size
 
 
 def initialize_session():
@@ -203,62 +34,6 @@ def initialize_session():
         st.session_state.move_history_display = []
         st.session_state.ai_thinking = False
         st.session_state.assets = load_or_create_assets()
-
-
-def display_board_interactive(assets: dict):
-    """
-    인터랙티브 바둑판 표시
-    19x19 버튼 그리드로 직접 클릭하여 돌을 놓을 수 있음
-    """
-    game = st.session_state.game
-    board_size = 19
-    
-    # 바둑판 그리기
-    board_img, cell_width, cell_height, stone_size = draw_board_with_stones(game, assets)
-
-    st.caption("💡 바둑판의 교점을 직접 클릭해서 돌을 놓으세요")
-
-    st.markdown(
-        """
-        <style>
-        div[data-testid="stVerticalBlock"] .gomoku-board-row button {
-            min-width: 28px !important;
-            min-height: 28px !important;
-            width: 100% !important;
-            padding: 0 !important;
-            border-radius: 50% !important;
-            border: 1px solid rgba(70, 45, 20, 0.55) !important;
-            background: rgba(255, 255, 255, 0.08) !important;
-            color: transparent !important;
-            box-shadow: none !important;
-        }
-        div[data-testid="stVerticalBlock"] .gomoku-board-row button:hover {
-            border-color: rgba(70, 45, 20, 0.9) !important;
-            background: rgba(255, 255, 255, 0.18) !important;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    for row in range(board_size):
-        row_columns = st.columns(board_size, gap="small")
-        for col in range(board_size):
-            with row_columns[col]:
-                cell_value = game.board[row][col]
-                label = "●" if cell_value == 1 else "○" if cell_value == 2 else ""
-                disabled = cell_value != 0 or st.session_state.game_over
-                clicked = st.button(
-                    label,
-                    key=f"cell_{row}_{col}",
-                    disabled=disabled,
-                    use_container_width=True,
-                )
-                if clicked and not st.session_state.game_over:
-                    handle_player_move(row, col)
-
-    st.divider()
-
 
 
 def handle_player_move(row: int, col: int):
@@ -424,7 +199,12 @@ def main():
     with col_main:
         st.subheader("게임판")
         display_status()
-        display_board_interactive(st.session_state.assets)
+        display_board_interactive(
+            st.session_state.game,
+            st.session_state.assets,
+            st.session_state.game_over,
+            handle_player_move,
+        )
     
     with col_info:
         st.subheader("ℹ️ 규칙")
