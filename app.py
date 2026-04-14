@@ -34,6 +34,8 @@ def initialize_session():
         st.session_state.move_history_display = []
         st.session_state.ai_thinking = False
         st.session_state.assets = load_or_create_assets()
+        st.session_state.ai_last_analysis = "아직 AI 분석이 없습니다."
+        st.session_state.ai_analysis_history = []
 
 
 def handle_player_move(row: int, col: int):
@@ -166,32 +168,55 @@ def main():
     
     # 좌측 사이드바
     with st.sidebar:
-        st.header("⚙️ 게임 설정")
-        
-        if st.button("🔄 새 게임 시작", use_container_width=True):
-            st.session_state.game = GomokuGame(19)
-            st.session_state.winner = None
-            st.session_state.game_over = False
-            st.session_state.move_history_display = []
-            st.session_state.ai_thinking = False
-            st.rerun()
-        
-        st.divider()
-        
-        st.subheader("📊 게임 통계")
-        display_game_info()
-        
-        st.divider()
-        
-        st.subheader("📜 이동 히스토리")
-        if st.session_state.move_history_display:
-            for move in st.session_state.move_history_display:
-                st.text(move)
-        else:
-            st.text("아직 수가 없습니다.")
-        
-        st.divider()
-        show_asset_upload()
+        sidebar_tab_game, sidebar_tab_llm = st.tabs(["게임", "LLM 생각"])
+
+        with sidebar_tab_game:
+            st.header("⚙️ 게임 설정")
+
+            if st.button("🔄 새 게임 시작", use_container_width=True):
+                st.session_state.game = GomokuGame(19)
+                st.session_state.winner = None
+                st.session_state.game_over = False
+                st.session_state.move_history_display = []
+                st.session_state.ai_thinking = False
+                st.session_state.ai_last_analysis = "아직 AI 분석이 없습니다."
+                st.session_state.ai_analysis_history = []
+                st.rerun()
+
+            st.divider()
+
+            st.subheader("📊 게임 통계")
+            display_game_info()
+
+            st.divider()
+
+            st.subheader("📜 이동 히스토리")
+            if st.session_state.move_history_display:
+                for move in st.session_state.move_history_display:
+                    st.text(move)
+            else:
+                st.text("아직 수가 없습니다.")
+
+            st.divider()
+            show_asset_upload()
+
+        with sidebar_tab_llm:
+            st.subheader("🧠 최신 LLM 생각")
+            st.text_area(
+                "AI 분석",
+                value=st.session_state.ai_last_analysis,
+                height=260,
+                disabled=True,
+            )
+
+            st.divider()
+            st.subheader("🗂️ 분석 히스토리")
+            if st.session_state.ai_analysis_history:
+                for idx, item in enumerate(reversed(st.session_state.ai_analysis_history[-5:]), start=1):
+                    with st.expander(f"최근 분석 {idx}"):
+                        st.write(item)
+            else:
+                st.caption("아직 기록된 분석이 없습니다.")
     
     # 메인 콘텐츠
     st.subheader("게임판")
@@ -211,6 +236,8 @@ def main():
             
             if result:
                 move, confidence, analysis = result
+                st.session_state.ai_last_analysis = analysis
+                st.session_state.ai_analysis_history.append(analysis)
                 
                 if move:
                     # AI 수 배치
