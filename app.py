@@ -37,6 +37,8 @@ def initialize_session():
         st.session_state.ai_last_analysis = "아직 AI 분석이 없습니다."
         st.session_state.ai_analysis_history = []
         st.session_state.min_confidence_threshold = 0.5
+        st.session_state.ui_notice = None
+        st.session_state.ui_notice_level = "info"
 
 
 def handle_player_move(row: int, col: int):
@@ -47,8 +49,11 @@ def handle_player_move(row: int, col: int):
     success, winner = game.make_move(row, col, 1)
     
     if not success:
-        st.error(f"❌ 유효하지 않은 수입니다! ({row}, {col})")
+        st.session_state.ui_notice_level = "error"
+        st.session_state.ui_notice = f"유효하지 않은 수입니다! ({row}, {col})"
         return
+
+    st.session_state.ui_notice = None
     
     st.session_state.move_history_display.append(f"플레이어: ({row}, {col})")
     
@@ -103,7 +108,8 @@ def get_ai_move(min_confidence: float, max_retries: int = 2):
 
         return None
     except Exception as e:
-        st.error(f"❌ AI 오류: {str(e)}")
+        st.session_state.ui_notice_level = "error"
+        st.session_state.ui_notice = f"AI 오류: {str(e)}"
         return None
 
 
@@ -136,6 +142,21 @@ def display_status():
             st.info("🤖 AI가 생각 중... 잠시만 기다려주세요")
         else:
             st.info("🎯 플레이어의 차례 - 행과 열을 선택하고 돌 놓기를 클릭하세요")
+
+
+def display_right_notice():
+    """오른쪽 패널 전용 알림 표시"""
+    notice = st.session_state.get("ui_notice")
+    if not notice:
+        return
+
+    level = st.session_state.get("ui_notice_level", "info")
+    if level == "error":
+        st.error(f"❌ {notice}")
+    elif level == "warning":
+        st.warning(notice)
+    else:
+        st.info(notice)
 
 
 # ===== 애셋 업로드 인터페이스 =====
@@ -184,10 +205,6 @@ def main():
     """메인 함수"""
     initialize_session()
     
-    # 헤더
-    st.title("🎮 오목 게임 vs AI")
-    st.markdown("**LangGraph로 구현한 AI와 대전하는 오목 게임입니다.**")
-    
     # 좌측 사이드바: 원래 탭 복구
     with st.sidebar:
         sidebar_tab_game, sidebar_tab_llm = st.tabs(["게임", "LLM 생각"])
@@ -215,6 +232,7 @@ def main():
                 st.session_state.ai_thinking = False
                 st.session_state.ai_last_analysis = "아직 AI 분석이 없습니다."
                 st.session_state.ai_analysis_history = []
+                st.session_state.ui_notice = None
                 st.rerun()
 
             st.divider()
@@ -267,6 +285,10 @@ def main():
         right_tab_info, right_tab_notes = st.tabs(["상태", "안내"])
 
         with right_tab_info:
+            st.header("🎮 오목 게임 vs AI")
+            st.caption("LangGraph로 구현한 AI와 대전하는 오목 게임입니다.")
+            st.divider()
+            display_right_notice()
             st.subheader("게임 상태")
             display_status()
             st.divider()
