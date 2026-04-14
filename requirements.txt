@@ -8,3 +8,4 @@ dotenv
 
 pydantic
 streamlit
+streamlit-image-coordinates

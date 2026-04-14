@@ -1,11 +1,11 @@
 """오목 보드 UI 렌더링 모듈"""
 
 import os
-from io import BytesIO
 from typing import Dict
 
 import streamlit as st
 from PIL import Image, ImageDraw
+from streamlit_image_coordinates import streamlit_image_coordinates
 
 from game import GomokuGame
 
@@ -156,27 +156,28 @@ def draw_board_with_stones(game: GomokuGame, assets: Dict[str, Image.Image]):
 
 
 def display_board_interactive(game: GomokuGame, assets: Dict[str, Image.Image], game_over: bool, on_move):
-    """19x19 버튼 그리드로 보드 표시 및 클릭 처리"""
-    st.caption("💡 바둑판의 교점을 직접 클릭해서 돌을 놓으세요")
-    st.markdown(BOARD_STYLE, unsafe_allow_html=True)
+    """보드 이미지 위 교점을 직접 클릭해 착수"""
+    st.caption("💡 보드 위 교점을 직접 클릭해서 돌을 놓으세요")
 
     board_img = draw_board_with_stones(game, assets)
-    st.image(board_img, use_container_width=True)
+    width, height = board_img.size
+    cell_width = width / (BOARD_SIZE + 1)
+    cell_height = height / (BOARD_SIZE + 1)
 
-    for row in range(BOARD_SIZE):
-        row_columns = st.columns(BOARD_SIZE, gap="small")
-        for col in range(BOARD_SIZE):
-            with row_columns[col]:
-                cell_value = game.board[row][col]
-                label = "●" if cell_value == 1 else "○" if cell_value == 2 else ""
-                disabled = cell_value != 0 or game_over
-                clicked = st.button(
-                    label,
-                    key=f"cell_{row}_{col}",
-                    disabled=disabled,
-                    use_container_width=True,
-                )
-                if clicked and not game_over:
-                    on_move(row, col)
+    click = streamlit_image_coordinates(
+        board_img,
+        key="gomoku_board_click",
+        use_column_width="always",
+    )
+
+    if click and not game_over:
+        x = click.get("x")
+        y = click.get("y")
+        if x is not None and y is not None:
+            col = round(x / cell_width) - 1
+            row = round(y / cell_height) - 1
+            row = max(0, min(BOARD_SIZE - 1, row))
+            col = max(0, min(BOARD_SIZE - 1, col))
+            on_move(row, col)
 
     st.divider()
