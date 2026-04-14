@@ -64,6 +64,7 @@ def handle_player_move(row: int, col: int):
     if winner:
         st.session_state.winner = 1
         st.session_state.game_over = True
+        st.rerun()
         return
     
     # AI 수 계산
