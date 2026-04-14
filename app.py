@@ -282,6 +282,9 @@ def main():
         )
 
     with right_col:
+        if st.session_state.ai_thinking and not st.session_state.game_over:
+            st.info("🤖 AI가 최선의 수를 생각중...")
+
         right_tab_info, right_tab_notes = st.tabs(["상태", "안내"])
 
         with right_tab_info:
