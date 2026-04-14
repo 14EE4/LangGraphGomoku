@@ -12,12 +12,12 @@ from typing import List, Tuple, Optional
 class GomokuGame:
     """오목 게임을 관리하는 클래스"""
 
-    def __init__(self, board_size: int = 15):
+    def __init__(self, board_size: int = 19):
         """
         게임 초기화
         
         Args:
-            board_size: 게임판 크기 (기본: 15x15)
+            board_size: 게임판 크기 (기본: 19x19)
                 - 0: 빈칸
                 - 1: 플레이어 돌
                 - 2: AI 돌
