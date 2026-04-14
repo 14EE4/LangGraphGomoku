@@ -126,7 +126,7 @@ def load_or_create_assets():
 def draw_board_with_stones(game: GomokuGame, assets: dict):
     """
     바둑판(19x19)과 돌을 하나의 이미지로 그리기
-    보드 텍스처 위에 격자선을 겹쳐 표시
+    보드 텍스처 위에 격자선을 겹치게 그리고, 그 위에 돌을 배치
     
     Args:
         game: 게임 객체
@@ -134,8 +134,19 @@ def draw_board_with_stones(game: GomokuGame, assets: dict):
     """
     board_img = assets['board'].copy().convert('RGB')
     board_size = 19  # 고정: 19x19
-    width, height = board_img.size
     
+    # 보드를 정사각형으로 만들기
+    original_width, original_height = board_img.size
+    square_size = min(original_width, original_height)
+    
+    # 정사각형으로 중앙 자르기
+    left = (original_width - square_size) // 2
+    top = (original_height - square_size) // 2
+    right = left + square_size
+    bottom = top + square_size
+    board_img = board_img.crop((left, top, right, bottom))
+    
+    width, height = board_img.size
     cell_width = width / (board_size + 1)
     cell_height = height / (board_size + 1)
     
@@ -146,20 +157,7 @@ def draw_board_with_stones(game: GomokuGame, assets: dict):
     black_stone = assets['black_stone'].resize((stone_size, stone_size), Image.Resampling.LANCZOS)
     white_stone = assets['white_stone'].resize((stone_size, stone_size), Image.Resampling.LANCZOS)
     
-    # 보드에 돌 그리기
-    for row in range(board_size):
-        for col in range(board_size):
-            if game.board[row][col] != 0:
-                # 돌의 중심 위치 계산
-                x = int(cell_width * (col + 1) - stone_size / 2)
-                y = int(cell_height * (row + 1) - stone_size / 2)
-                
-                if game.board[row][col] == 1:  # 플레이어 (검은 돌)
-                    board_img.paste(black_stone, (x, y), black_stone)
-                else:  # AI (흰 돌)
-                    board_img.paste(white_stone, (x, y), white_stone)
-    
-    # 텍스처 위에 격자선 그리기
+    # 1단계: 텍스처 위에 격자선 먼저 그리기
     draw = ImageDraw.Draw(board_img)
     line_color = (50, 30, 10)  # 어두운 갈색
     line_width = 2
@@ -177,6 +175,19 @@ def draw_board_with_stones(game: GomokuGame, assets: dict):
         x_start = int(cell_width)
         x_end = int(width - cell_width)
         draw.line([(x_start, y), (x_end, y)], fill=line_color, width=line_width)
+    
+    # 2단계: 격자선 위에 돌 배치
+    for row in range(board_size):
+        for col in range(board_size):
+            if game.board[row][col] != 0:
+                # 돌의 중심 위치 계산 (격자의 교점)
+                x = int(cell_width * (col + 1) - stone_size / 2)
+                y = int(cell_height * (row + 1) - stone_size / 2)
+                
+                if game.board[row][col] == 1:  # 플레이어 (검은 돌)
+                    board_img.paste(black_stone, (x, y), black_stone)
+                else:  # AI (흰 돌)
+                    board_img.paste(white_stone, (x, y), white_stone)
     
     return board_img, cell_width, cell_height, stone_size
 
