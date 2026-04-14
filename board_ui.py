@@ -152,6 +152,23 @@ def draw_board_with_stones(game: GomokuGame, assets: Dict[str, Image.Image]):
                 stone = black_stone if game.board[row][col] == 1 else white_stone
                 board_img.paste(stone, (x, y), stone)
 
+    # 마지막 수를 빨간 원/점으로 강조 표시
+    if game.move_history:
+        last_row, last_col, _ = game.move_history[-1]
+        cx = int(cell_width * (last_col + 1))
+        cy = int(cell_height * (last_row + 1))
+        outer_r = max(6, int(stone_size * 0.24))
+        inner_r = max(2, int(stone_size * 0.10))
+        draw.ellipse(
+            [(cx - outer_r, cy - outer_r), (cx + outer_r, cy + outer_r)],
+            outline=(220, 30, 30),
+            width=3,
+        )
+        draw.ellipse(
+            [(cx - inner_r, cy - inner_r), (cx + inner_r, cy + inner_r)],
+            fill=(220, 30, 30),
+        )
+
     return board_img
 
 
