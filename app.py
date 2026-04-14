@@ -39,6 +39,7 @@ def initialize_session():
         st.session_state.min_confidence_threshold = 0.5
         st.session_state.ui_notice = None
         st.session_state.ui_notice_level = "info"
+        st.session_state.last_click_signature = None
 
 
 def handle_player_move(row: int, col: int):
@@ -237,6 +238,7 @@ def main():
                 st.session_state.ai_last_analysis = "아직 AI 분석이 없습니다."
                 st.session_state.ai_analysis_history = []
                 st.session_state.ui_notice = None
+                st.session_state.last_click_signature = None
                 st.rerun()
 
             st.divider()
@@ -312,29 +314,28 @@ def main():
     
     # AI 턴 처리
     if st.session_state.ai_thinking and not st.session_state.game_over:
-        with st.spinner("🤖 AI가 최적의 수를 계산 중 (19×19)..."):
-            time.sleep(1)  # UX 개선용
-            result = get_ai_move(st.session_state.min_confidence_threshold)
-            
-            if result:
-                move, confidence, analysis, tries = result
-                st.session_state.ai_last_analysis = analysis
-                st.session_state.ai_analysis_history.append(analysis)
-                
-                if move:
-                    # AI 수 배치
-                    row, col = move
-                    success, winner = st.session_state.game.make_move(row, col, 2)
-                    
-                    if success:
-                        st.session_state.move_history_display.append(
-                            f"AI: ({row}, {col}) [신뢰도: {confidence:.1%}, 시도: {tries}회]"
-                        )
-                        
-                        if winner:
-                            st.session_state.winner = 2
-                            st.session_state.game_over = True
-        
+        time.sleep(1)  # UX 개선용
+        result = get_ai_move(st.session_state.min_confidence_threshold)
+
+        if result:
+            move, confidence, analysis, tries = result
+            st.session_state.ai_last_analysis = analysis
+            st.session_state.ai_analysis_history.append(analysis)
+
+            if move:
+                # AI 수 배치
+                row, col = move
+                success, winner = st.session_state.game.make_move(row, col, 2)
+
+                if success:
+                    st.session_state.move_history_display.append(
+                        f"AI: ({row}, {col}) [신뢰도: {confidence:.1%}, 시도: {tries}회]"
+                    )
+
+                    if winner:
+                        st.session_state.winner = 2
+                        st.session_state.game_over = True
+
         st.session_state.ai_thinking = False
         st.rerun()
 
