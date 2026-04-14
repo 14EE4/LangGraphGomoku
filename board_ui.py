@@ -4,7 +4,7 @@ import os
 from typing import Dict
 
 import streamlit as st
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
 from streamlit_image_coordinates import streamlit_image_coordinates
 
 from game import GomokuGame
@@ -143,6 +143,28 @@ def draw_board_with_stones(game: GomokuGame, assets: Dict[str, Image.Image]):
         x_start = int(cell_width)
         x_end = int(width - cell_width)
         draw.line([(x_start, y), (x_end, y)], fill=line_color, width=2)
+
+    # 좌표 숫자 라벨(가로/세로)
+    font = ImageFont.load_default()
+    label_color = (70, 35, 15)
+    for i in range(BOARD_SIZE):
+        label = str(i)
+
+        # 상단/하단 열 번호
+        x = int(cell_width * (i + 1))
+        top_bbox = draw.textbbox((0, 0), label, font=font)
+        top_w = top_bbox[2] - top_bbox[0]
+        top_h = top_bbox[3] - top_bbox[1]
+        draw.text((x - top_w // 2, int(cell_height * 0.35) - top_h // 2), label, fill=label_color, font=font)
+        draw.text((x - top_w // 2, int(height - cell_height * 0.35) - top_h // 2), label, fill=label_color, font=font)
+
+        # 좌측/우측 행 번호
+        y = int(cell_height * (i + 1))
+        side_bbox = draw.textbbox((0, 0), label, font=font)
+        side_w = side_bbox[2] - side_bbox[0]
+        side_h = side_bbox[3] - side_bbox[1]
+        draw.text((int(cell_width * 0.35) - side_w // 2, y - side_h // 2), label, fill=label_color, font=font)
+        draw.text((int(width - cell_width * 0.35) - side_w // 2, y - side_h // 2), label, fill=label_color, font=font)
 
     for row in range(BOARD_SIZE):
         for col in range(BOARD_SIZE):
