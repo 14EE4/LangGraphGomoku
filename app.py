@@ -195,7 +195,7 @@ def display_status():
         else:
             st.markdown(
                 '<div class="status-box status-player"><h3>🎯 플레이어의 차례</h3></div>',
-                unsafe_have_html=True
+                unsafe_allow_html=True
             )
 
 
