@@ -138,6 +138,29 @@ class GomokuAIAgent:
 
         return "\n".join(lines)
 
+    def _extract_first_json_object(self, text: str) -> Optional[dict]:
+        """문자열에서 첫 번째 유효 JSON 객체를 추출"""
+        start = text.find("{")
+        if start == -1:
+            return None
+
+        depth = 0
+        for i in range(start, len(text)):
+            ch = text[i]
+            if ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    candidate = text[start:i + 1]
+                    try:
+                        parsed = json.loads(candidate)
+                        if isinstance(parsed, dict):
+                            return parsed
+                    except json.JSONDecodeError:
+                        return None
+        return None
+
     def _analyze_board(self, state: GomokuState) -> GomokuState:
         """
         보드 분석: LLM에게 현재 게임 상황 분석 요청
@@ -176,8 +199,21 @@ class GomokuAIAgent:
 
         user_message += """
 
-    반드시 마지막 줄을 아래 형식으로 끝내세요:
-    FINAL_MOVE: (row,col)
+    반드시 아래 JSON 객체 하나만 출력하세요. 마크다운/코드블록/설명 문장 금지.
+
+    {
+      "threat": "플레이어 위협 요약",
+      "opportunity": "AI 공격 기회 요약",
+      "recommended_move": {"row": 0, "col": 0},
+      "reason": "해당 수를 선택한 이유",
+      "confidence": 0.0,
+      "final_move": "FINAL_MOVE: (row,col)"
+    }
+
+    주의:
+    - row, col 은 정수
+    - confidence 는 0.0~1.0
+    - final_move 문자열도 반드시 포함
     """
 
         try:
@@ -202,6 +238,23 @@ class GomokuAIAgent:
         """
         analysis = state["analysis"]
 
+        # 최우선: JSON 파싱 (정해진 틀)
+        json_obj = self._extract_first_json_object(analysis)
+        if json_obj:
+            move_obj = json_obj.get("recommended_move", {})
+            if isinstance(move_obj, dict):
+                row = move_obj.get("row")
+                col = move_obj.get("col")
+                if isinstance(row, int) and isinstance(col, int):
+                    if (row, col) in state["valid_moves"]:
+                        state["selected_move"] = (row, col)
+                        conf = json_obj.get("confidence", 0.9)
+                        if isinstance(conf, (int, float)):
+                            state["confidence"] = max(0.0, min(1.0, float(conf)))
+                        else:
+                            state["confidence"] = 0.9
+                        return state
+
         # 최우선: 강제 포맷 라인 파싱
         final_pattern = r"FINAL_MOVE\s*:\s*\(\s*(\d+)\s*,\s*(\d+)\s*\)"
         final_match = re.search(final_pattern, analysis, re.IGNORECASE)
@@ -212,7 +265,7 @@ class GomokuAIAgent:
                 state["confidence"] = 0.95
                 return state
 
-        # 프롬프트에서 (행,열) 형식의 좌표 찾기
+        # 폴백: 프롬프트에서 (행,열) 형식의 좌표 찾기
         pattern = r"\((\d+)\s*,\s*(\d+)\)"
         matches = re.findall(pattern, analysis)
 
