@@ -167,7 +167,7 @@ def display_board_interactive(game: GomokuGame, assets: Dict[str, Image.Image], 
     click = streamlit_image_coordinates(
         board_img,
         key="gomoku_board_click",
-        use_column_width="always",
+        use_column_width=False,
     )
 
     if click and not game_over:
