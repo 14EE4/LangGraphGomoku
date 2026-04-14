@@ -20,7 +20,7 @@ st.set_page_config(
     page_title="오목 게임 🎮",
     page_icon="🎮",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
 )
 
 
@@ -188,11 +188,23 @@ def main():
     st.title("🎮 오목 게임 vs AI")
     st.markdown("**LangGraph로 구현한 AI와 대전하는 오목 게임입니다.**")
     
-    # 좌측 사이드바
-    with st.sidebar:
-        sidebar_tab_game, sidebar_tab_llm = st.tabs(["게임", "LLM 생각"])
+    # 메인 레이아웃: 가운데 보드 + 오른쪽 탭
+    spacer_col, board_col, right_col = st.columns([0.12, 1.55, 1.0], gap="large")
 
-        with sidebar_tab_game:
+    with board_col:
+        st.subheader("게임판")
+        display_status()
+        display_board_interactive(
+            st.session_state.game,
+            st.session_state.assets,
+            st.session_state.game_over,
+            handle_player_move,
+        )
+
+    with right_col:
+        right_tab_game, right_tab_llm = st.tabs(["게임", "LLM 생각"])
+
+        with right_tab_game:
             st.header("⚙️ 게임 설정")
 
             st.subheader("🤖 AI 판단 설정")
@@ -234,7 +246,7 @@ def main():
             st.divider()
             show_asset_upload()
 
-        with sidebar_tab_llm:
+        with right_tab_llm:
             st.subheader("🧠 최신 LLM 생각")
             st.text_area(
                 "AI 분석",
@@ -251,16 +263,6 @@ def main():
                         st.write(item)
             else:
                 st.caption("아직 기록된 분석이 없습니다.")
-    
-    # 메인 콘텐츠
-    st.subheader("게임판")
-    display_status()
-    display_board_interactive(
-        st.session_state.game,
-        st.session_state.assets,
-        st.session_state.game_over,
-        handle_player_move,
-    )
     
     # AI 턴 처리
     if st.session_state.ai_thinking and not st.session_state.game_over:
