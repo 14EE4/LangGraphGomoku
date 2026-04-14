@@ -1,0 +1,10 @@
+langchain
+langgraph
+
+langchain-groq
+langchain-community
+
+dotenv
+
+pydantic
+streamlit
