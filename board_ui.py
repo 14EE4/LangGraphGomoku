@@ -38,6 +38,17 @@ div[data-testid="stVerticalBlock"] .gomoku-board-row button:hover {
 """
 
 
+def _load_board_label_font(cell_height: float) -> ImageFont.ImageFont:
+    """좌표 라벨용 폰트를 로드한다. 시스템 폰트가 없으면 기본 폰트를 사용한다."""
+    font_size = max(14, int(cell_height * 0.42))
+    for font_name in ["arial.ttf", "segoeui.ttf", "malgun.ttf"]:
+        try:
+            return ImageFont.truetype(font_name, font_size)
+        except OSError:
+            continue
+    return ImageFont.load_default()
+
+
 def create_default_board(size_px: int = 600) -> Image.Image:
     """기본 바둑판 이미지 생성"""
     img = Image.new("RGB", (size_px, size_px), color=(210, 160, 100))
@@ -145,7 +156,7 @@ def draw_board_with_stones(game: GomokuGame, assets: Dict[str, Image.Image]):
         draw.line([(x_start, y), (x_end, y)], fill=line_color, width=2)
 
     # 좌표 숫자 라벨(가로/세로)
-    font = ImageFont.load_default()
+    font = _load_board_label_font(cell_height)
     label_color = (70, 35, 15)
     for i in range(BOARD_SIZE):
         label = str(i)
@@ -194,7 +205,13 @@ def draw_board_with_stones(game: GomokuGame, assets: Dict[str, Image.Image]):
     return board_img
 
 
-def display_board_interactive(game: GomokuGame, assets: Dict[str, Image.Image], game_over: bool, on_move):
+def display_board_interactive(
+    game: GomokuGame,
+    assets: Dict[str, Image.Image],
+    game_over: bool,
+    ai_thinking: bool,
+    on_move,
+):
     """보드 이미지 위 교점을 직접 클릭해 착수"""
     st.caption("💡 보드 위 교점을 직접 클릭해서 돌을 놓으세요")
 
@@ -207,7 +224,7 @@ def display_board_interactive(game: GomokuGame, assets: Dict[str, Image.Image], 
         use_column_width=True,
     )
 
-    if click and not game_over:
+    if click and not game_over and not ai_thinking:
         x = click.get("x")
         y = click.get("y")
         if x is not None and y is not None:
