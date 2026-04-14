@@ -161,19 +161,21 @@ def display_board_interactive(game: GomokuGame, assets: Dict[str, Image.Image], 
 
     board_img = draw_board_with_stones(game, assets)
     width, height = board_img.size
-    cell_width = width / (BOARD_SIZE + 1)
-    cell_height = height / (BOARD_SIZE + 1)
 
     click = streamlit_image_coordinates(
         board_img,
         key="gomoku_board_click",
-        use_column_width=False,
+        use_column_width=True,
     )
 
     if click and not game_over:
         x = click.get("x")
         y = click.get("y")
         if x is not None and y is not None:
+            displayed_width = click.get("width", width)
+            displayed_height = click.get("height", height)
+            cell_width = displayed_width / (BOARD_SIZE + 1)
+            cell_height = displayed_height / (BOARD_SIZE + 1)
             col = round(x / cell_width) - 1
             row = round(y / cell_height) - 1
             row = max(0, min(BOARD_SIZE - 1, row))

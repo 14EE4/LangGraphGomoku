@@ -194,31 +194,14 @@ def main():
         show_asset_upload()
     
     # 메인 콘텐츠
-    col_main, col_info = st.columns([3, 1])
-    
-    with col_main:
-        st.subheader("게임판")
-        display_status()
-        display_board_interactive(
-            st.session_state.game,
-            st.session_state.assets,
-            st.session_state.game_over,
-            handle_player_move,
-        )
-    
-    with col_info:
-        st.subheader("ℹ️ 규칙")
-        st.markdown("""
-        **오목**
-        - 5개의 자신의 돌을 먼저 연결하면 승리
-        - 플레이어: ●(검은 돌)
-        - AI: ○(흰 돌)
-        
-        **LangChain 기술**
-        - Groq API 사용
-        - openai/gpt-oss-20b 모델
-        - LangGraph 워크플로우
-        """)
+    st.subheader("게임판")
+    display_status()
+    display_board_interactive(
+        st.session_state.game,
+        st.session_state.assets,
+        st.session_state.game_over,
+        handle_player_move,
+    )
     
     # AI 턴 처리
     if st.session_state.ai_thinking and not st.session_state.game_over:
