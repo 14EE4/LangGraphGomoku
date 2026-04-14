@@ -39,7 +39,7 @@ def initialize_session():
         st.session_state.min_confidence_threshold = 0.5
         st.session_state.ui_notice = None
         st.session_state.ui_notice_level = "info"
-        st.session_state.last_click_signature = None
+        st.session_state.last_processed_click_cell = None
 
 
 def handle_player_move(row: int, col: int):
@@ -53,6 +53,9 @@ def handle_player_move(row: int, col: int):
     success, winner = game.make_move(row, col, 1)
     
     if not success:
+        # 점유된 교점에 대한 중복/스테일 클릭은 조용히 무시
+        if 0 <= row < game.board_size and 0 <= col < game.board_size and game.board[row][col] != 0:
+            return
         st.session_state.ui_notice_level = "error"
         st.session_state.ui_notice = f"유효하지 않은 수입니다! ({row}, {col})"
         return
@@ -238,7 +241,7 @@ def main():
                 st.session_state.ai_last_analysis = "아직 AI 분석이 없습니다."
                 st.session_state.ai_analysis_history = []
                 st.session_state.ui_notice = None
-                st.session_state.last_click_signature = None
+                st.session_state.last_processed_click_cell = None
                 st.rerun()
 
             st.divider()

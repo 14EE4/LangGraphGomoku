@@ -228,11 +228,6 @@ def display_board_interactive(
         x = click.get("x")
         y = click.get("y")
         if x is not None and y is not None:
-            click_signature = (int(x), int(y), len(game.move_history))
-            if st.session_state.get("last_click_signature") == click_signature:
-                st.divider()
-                return
-
             displayed_width = click.get("width", width)
             displayed_height = click.get("height", height)
             cell_width = displayed_width / (BOARD_SIZE + 1)
@@ -241,7 +236,14 @@ def display_board_interactive(
             row = round(y / cell_height) - 1
             row = max(0, min(BOARD_SIZE - 1, row))
             col = max(0, min(BOARD_SIZE - 1, col))
-            st.session_state.last_click_signature = click_signature
+
+            click_cell = (row, col)
+            # 동일 교점의 스테일 이벤트가 반복 전달될 때 중복 처리 방지
+            if st.session_state.get("last_processed_click_cell") == click_cell and game.board[row][col] != 0:
+                st.divider()
+                return
+
+            st.session_state.last_processed_click_cell = click_cell
             on_move(row, col)
 
     st.divider()
